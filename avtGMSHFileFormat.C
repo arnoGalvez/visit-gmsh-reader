@@ -194,16 +194,16 @@ avtGMSHFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
   //
   // CODE TO ADD A SCALAR VARIABLE
   //
-  // string mesh_for_this_var = meshname; // ??? -- could be multiple meshes
-  // string varname = "bar";
-  //
+  string mesh_for_this_var = meshname; // ??? -- could be multiple meshes
+  string varname = "tag 1";
+  
   // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
-  // avtCentering cent = AVT_NODECENT;
-  //
-  //
+  avtCentering cent = AVT_ZONECENT;
   // Here's the call that tells the meta-data object that we have a var:
-  //
-  // AddScalarVarToMetaData(md, varname, mesh_for_this_var, cent);
+  AddScalarVarToMetaData(md, varname, mesh_for_this_var, cent);
+  varname = "tag 2";
+  AddScalarVarToMetaData(md, varname, mesh_for_this_var, cent);
+
   //
 }
 
@@ -352,7 +352,7 @@ avtGMSHFileFormat::GetMesh(const char *meshname)
 vtkDataArray *
 avtGMSHFileFormat::GetVar(const char *varname)
 {
-  return nullptr;
+  // return nullptr;
 
   //
   // If you have a file format where variables don't apply (for example a
@@ -365,15 +365,47 @@ avtGMSHFileFormat::GetVar(const char *varname)
   //
   // If you do have a scalar variable, here is some code that may be helpful.
   //
-  // int ntuples = XXX; // this is the number of entries in the variable.
-  // vtkFloatArray *rv = vtkFloatArray::New();
-  // rv->SetNumberOfTuples(ntuples);
-  // for (int i = 0 ; i < ntuples ; i++)
-  // {
-  //      rv->SetTuple1(i, VAL);  // you must determine value for ith entry.
-  // }
+
+  const std::string tag2("tag 2");
+  size_t tagIndex = 3;
+
+  std::string s_var(varname);
+  if (s_var == tag2)
+  {
+    tagIndex = 4;
+  }
+
+  std::vector<std::string>::iterator nodes_start_it = std::find(m_data.begin(), m_data.end(), "$Elements");
+  int nodes_index = std::distance(m_data.begin(), nodes_start_it);
+  int nnodes = std::stoi(m_data[nodes_index + 1]);
+  int nodes_start_index = nodes_index + 2;
+  std::vector<std::string>::iterator nodes_end_it = std::find(m_data.begin(), m_data.end(), "$EndElements");
+int nodes_end_index = std::distance(m_data.begin(), nodes_end_it);
+
+  std::vector<int> tags;
+
+  for (int i = nodes_start_index; i < nodes_end_index; ++i) {
+    std::vector<std::string> toks_elms = split(m_data[i]);
+    if (toks_elms.size() < tagIndex+1)
+    {
+      continue;
+    }
+    if (toks_elms[1] == "2" || toks_elms[1] == "4")
+    {
+      tags.push_back(std::stoi(toks_elms[tagIndex]));
+    } 
+  }
+
+
+  int ntuples = tags.size(); // this is the number of entries in the variable.
+  vtkFloatArray *rv = vtkFloatArray::New();
+  rv->SetNumberOfTuples(ntuples);
+  for (int i = 0 ; i < ntuples; i++)
+  {
+       rv->SetTuple1(i, tags[i]);  // you must determine value for ith entry.
+  }
   //
-  // return rv;
+  return rv;
   //
 }
 
