@@ -169,32 +169,33 @@ avtGMSHFileFormat::FreeUpResources(void)
 void
 avtGMSHFileFormat::PopulateDatabaseMetaData(avtDatabaseMetaData *md)
 {
+  using namespace std;
   //
   // CODE TO ADD A MESH
   //
-  // string meshname = ...
+  string meshname = "foo";
   //
   // AVT_RECTILINEAR_MESH, AVT_CURVILINEAR_MESH, AVT_UNSTRUCTURED_MESH,
   // AVT_POINT_MESH, AVT_SURFACE_MESH, AVT_UNKNOWN_MESH
-  // avtMeshType mt = AVT_RECTILINEAR_MESH;
+  avtMeshType mt = AVT_UNSTRUCTURED_MESH;
   //
-  // int nblocks = 1;  <-- this must be 1 for STSD
-  // int block_origin = 0;
-  // int spatial_dimension = 2;
-  // int topological_dimension = 2;
-  // double *extents = NULL;
+  int nblocks = 1;  //<-- this must be 1 for STSD
+  int block_origin = 0;
+  int spatial_dimension = 3;
+  int topological_dimension = 3;
+  double *extents = nullptr;
   //
   // Here's the call that tells the meta-data object that we have a mesh:
   //
-  // AddMeshToMetaData(md, meshname, mt, extents, nblocks, block_origin,
-  //                   spatial_dimension, topological_dimension);
+  AddMeshToMetaData(md, meshname, mt, extents, nblocks, block_origin,
+                    spatial_dimension, topological_dimension);
   //
 
   //
   // CODE TO ADD A SCALAR VARIABLE
   //
   // string mesh_for_this_var = meshname; // ??? -- could be multiple meshes
-  // string varname = ...
+  // string varname = "bar";
   //
   // AVT_NODECENT, AVT_ZONECENT, AVT_UNKNOWN_CENT
   // avtCentering cent = AVT_NODECENT;
@@ -257,12 +258,23 @@ avtGMSHFileFormat::GetMesh(const char *meshname)
     z.push_back(std::stod(toks_vertices[3]));
   }
 
+  vtkPoints *points = vtkPoints::New();
+  points->SetNumberOfPoints(nnodes);
+  for (int i = 0; i < nnodes; ++i)
+  {
+    points->SetPoint(i, x[i], y[i], z[i]);
+  }
+
   // TODO:
   // Puis utiliser la structure de données VTK appropriée pour les stocker.
+  vtkUnstructuredGrid * grid = vtkUnstructuredGrid::New();
+  grid->SetPoints(points);
+  points->Delete();
 
   // TODO:
   // Initialiser un maillage non structuré à partir de cette dernière structure.
-    
+
+
   // TODO:
   // Lire les éléments (triangles et tetrahèdres) entre les balises $Elements et $EndElements.
   std::vector<std::string>::iterator elements_start_it =
@@ -299,11 +311,26 @@ avtGMSHFileFormat::GetMesh(const char *meshname)
   
   // TODO:
   // Allouer l'espace mémoire utilisé par le maillage en fonction du nombre de cellules.
+  grid->Allocate(elements_data.size());
+  for (int i = 0; i < elements_data.size(); ++i)
+  {
+    std::vector<int> &primitive = elements_data[i];
+    int type = primitive[0];
 
+    int vtkType = type == 2 ? VTK_TRIANGLE : type == 4 ? VTK_TETRA : VTK_EMPTY_CELL;
+    int verticesCount = type == 2 ? 3 : type == 4 ? 4 : 1;
+    vtkIdType vertices[verticesCount];
+    
+    for (int i = 0; i < verticesCount; ++i)
+    {
+      vertices[i] = primitive[i + 1];
+    }
+    grid->InsertNextCell(vtkType, verticesCount, vertices);
+  }
   // TODO:
   // Utiliser la structure de données VTK appropriée pour stocker les éléments du maillage.
   
-  return nullptr;
+  return grid;
 }
 
 // ****************************************************************************
